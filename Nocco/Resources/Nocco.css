@@ -1,4 +1,10 @@
 ﻿/*--------------------- Layout and Typography ----------------------------*/
+.superLink
+{
+    color : Blue;
+    cursor : pointer;      
+}
+
 body {
   font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, FreeSerif, serif;
   font-size: 15px;
@@ -29,6 +35,7 @@ h4, h5, h6 {
       margin-bottom: 15px;
       color: #000;
     }
+
 #container {
   position: relative;
 }
@@ -127,5 +134,75 @@ table td {
       margin: 0; padding: 0;
     }
 
+
+.noDecoration
+{
+    list-style-type: none;
+}
+
+h1, h2, h3, h4, h5, h6
+{
+    text-decoration: underline;
+}
+
+h1 
+{
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+h2 
+{
+    margin-top : 20px;
+    margin-bottom: 20px;
+}
+
+h3
+{
+    margin-top : 20px;
+    margin-bottom: 20px;
+    margin-left :  30px;
+}
+
+h4 
+{
+    margin-top : 20px;
+    margin-bottom: 20px;
+    margin-left :  50px;
+}
+
+h5 
+{
+    margin-top : 20px;
+    margin-bottom: 20px;
+    margin-left :  70px;
+}
+
+h6 
+{
+    margin: 60px;
+}
+
+
+.back-to-top 
+{
+    background: none;
+    margin: 0;
+    margin-right : 20px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 50px;
+    z-index: 100;
+    display: none;
+    text-decoration: none;
+    color: #000000;
+    /*background-color: #ff9000;*/
+}
+
+.back-to-top i {
+  font-size: 60px;
+}
 /*---------------------- Prettify Syntax Highlighting -----------------------------*/
 .str{color:#080}.kwd{color:#008}.com{color:#800}.typ{color:#606}.lit{color:#066}.pun{color:#660}.pln{color:#000}.tag{color:#008}.atn{color:#606}.atv{color:#080}.dec{color:#606}pre.prettyprint{padding:2px;border:1px solid #888}ol.linenums{margin-top:0;margin-bottom:0}li.L0,li.L1,li.L2,li.L3,li.L5,li.L6,li.L7,li.L8{list-style:none}li.L1,li.L3,li.L5,li.L7,li.L9{background:#eee}@media print{.str{color:#060}.kwd{color:#006;font-weight:bold}.com{color:#600;font-style:italic}.typ{color:#404;font-weight:bold}.lit{color:#044}.pun{color:#440}.pln{color:#000}.tag{color:#006;font-weight:bold}.atn{color:#404}.atv{color:#060}}

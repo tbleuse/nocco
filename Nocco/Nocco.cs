@@ -55,11 +55,11 @@ namespace Nocco {
 		// Generate the documentation for a source file by reading it in, splitting it
 		// up into comment/code sections, highlighting them for the appropriate language,
 		// and merging them into an HTML template.
-		private static void GenerateDocumentation(string source) {
+		private static string GenerateDocumentation(string source) {
 			var lines = File.ReadAllLines(source);
 			var sections = Parse(source, lines);
 			Hightlight(sections);
-			GenerateHtml(source, sections);
+			return GenerateHtml(source, sections);
 		}
 
 		// Given a string of source code, parse out each comment and the code that
@@ -113,7 +113,7 @@ namespace Nocco {
 		// Once all of the code is finished highlighting, we can generate the HTML file
 		// and write out the documentation. Pass the completed sections into the template
 		// found in `Resources/Nocco.cshtml`
-		private static void GenerateHtml(string source, List<Section> sections) {
+		private static string GenerateHtml(string source, List<Section> sections) {
 			int depth;
 			var destination = GetDestination(source, out depth);
 			
@@ -131,6 +131,8 @@ namespace Nocco {
 			htmlTemplate.Execute();
 
 			File.WriteAllText(destination, htmlTemplate.Buffer.ToString());
+
+            return destination;
 		}
 
 		//### Helpers & Setup
@@ -268,10 +270,73 @@ namespace Nocco {
 
 						return true;
 					}));
-				}
+                }
+                #region Select files
+                List<string> tempFiles = new List<string>();
+                foreach (var file in _files)
+                {
+                    var lines = File.ReadAllLines(file);
+                    if (lines.Length > 0 && (lines[0].StartsWith("// GENERATE") || lines[0].StartsWith("//GENERATE")))
+                    {
+                        tempFiles.Add(file);
+                    }
+                }
+                _files = tempFiles;
+                #endregion
+                List<String> allFiles = new List<string>();
+                List<LinkFileToClass> allLinks = new List<LinkFileToClass>();
+                foreach (var file in _files)
+                    allFiles.Add(GenerateDocumentation(file));
 
-				foreach (var file in _files)
-					GenerateDocumentation(file);
+
+                Regex reg = new Regex(@"LINK\\(\w+(\#\w+)?)");
+                foreach (var file in allFiles)
+                    allLinks.Add(new LinkFileToClass(file.Substring(7)));
+
+                foreach (var file in allFiles)
+                {
+                    LinkFileToClass currentFile = allLinks.SingleOrDefault(l => l.MyPath == file.Substring(7));
+                    var lines = File.ReadAllLines(file);
+                    for (int j = 0; j < lines.Length; ++j)
+                    {
+                        var line = lines[j];
+                        if (line.Contains("<a href=\"LINK"))
+                        {
+                            line.ToList();
+                            if (reg.IsMatch(line))
+                            {
+                                var matches = reg.Matches(line);
+
+                                foreach (Match match in matches)
+                                {
+                                    // On gère ici les liens avec les ancres s'il y en a
+                                    string typeNameWithAnchor = match.Value.Split(new char[] { '\\' })[1];
+                                    string[] anchorTab = typeNameWithAnchor.Split(new char[] { '#' });
+                                    string typeName = anchorTab[0];
+                                    string anchorName = String.Empty;
+                                    if (anchorTab.Length == 2)
+                                    {
+                                        anchorName = anchorTab[1];
+                                    }
+                                    LinkFileToClass link = allLinks.SingleOrDefault(l => l.FileTypeName == typeName.ToUpper());
+                                    if (link != null)
+                                    {
+                                        if (anchorName == String.Empty)
+                                        {
+                                            lines[j] = lines[j].Replace(match.Value, currentFile.PathToRoot + link.MyPath);
+                                        }
+                                        else
+                                        {
+                                            lines[j] = lines[j].Replace(match.Value, currentFile.PathToRoot + link.MyPath + "#" + anchorName);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    File.WriteAllLines(file, lines);
+                }
+
 			}
 		}
 	}

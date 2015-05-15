@@ -37,7 +37,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="IndexMaintainer.cs" />
     <Compile Include="Language.cs" />
+    <Compile Include="LinkFileToClass.cs" />
     <Compile Include="Nocco.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -55,6 +57,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Resources\bootstrap.css" />
+    <Content Include="Resources\bootstrap.js" />
+    <Content Include="Resources\jquery-1.9.1.js" />
+    <Content Include="Resources\jquery.zoom.js" />
+    <Content Include="Resources\nocco.js" />
     <Content Include="Resources\prettify.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
