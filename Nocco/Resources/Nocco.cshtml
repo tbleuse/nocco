@@ -6,10 +6,14 @@
 	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
 	<link href="@(PathToCss)" rel="stylesheet" media="all" type="text/css" />
 	<script src="@(PathToJs)" type="text/javascript"></script>
+    <script src="@(PathToJs1)" type="text/javascript"></script>
+    <script src="@(PathToJs2)" type="text/javascript"></script>
 </head>
 <body onload="prettyPrint()">
 	<div id="container">
-		<div id="background"></div>
+        <a href="#" class="back-to-top" style="display: inline;">
+            <img src="@BackToTopPath">
+        </a>
 		@if (@Sources.Count > 1) {
 			<div id="jump_to">
 				Jump To &hellip;
@@ -24,11 +28,13 @@
 				</div>
 			</div>
 		}
+        <h1>@Title</h1>
+        <p>@Intro</p>
 		<table cellpadding="0" cellspacing="0">
 			<thead>
 				<tr>
 					<th class="docs">
-						<h1>@Title</h1>
+						
 					</th>
 					<th class="code"></th>
 				</tr>

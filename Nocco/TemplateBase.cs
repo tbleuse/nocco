@@ -10,9 +10,13 @@ namespace Nocco {
 		public string Title { get; set; }
 		public string PathToCss { get; set; }
         public string PathToJs { get; set; }
+        public string PathToJs1 { get; set; }
+        public string PathToJs2 { get; set; }
 		public Func<string, string> GetSourcePath { get; set; }
+        public String Intro { get; set; }
 		public List<Section> Sections { get; set; }
 		public List<string> Sources { get; set; }
+        public String BackToTopPath { get; set; }
 
 		public StringBuilder Buffer { get; set; }
 

@@ -57,45 +57,84 @@ namespace Nocco {
 		// and merging them into an HTML template.
 		private static string GenerateDocumentation(string source) {
 			var lines = File.ReadAllLines(source);
-			var sections = Parse(source, lines);
-			Hightlight(sections);
-			return GenerateHtml(source, sections);
+            // We remove the first line (GENERATE comment)
+            lines = lines.Where((val, idx) => idx != 0).ToArray();
+			var documentation = Parse(source, lines);
+			Hightlight(documentation.Sections);
+            return GenerateHtml(source, documentation);
 		}
 
 		// Given a string of source code, parse out each comment and the code that
 		// follows it, and create an individual `Section` for it.
-		private static List<Section> Parse(string source, string[] lines) {
-			var sections = new List<Section>();
+		private static DocumentationFile Parse(string source, string[] lines) {
+            DocumentationFile documentation = new DocumentationFile
+            {
+                Sections = new List<Section>()
+            };
 			var language = GetLanguage(source);
 			var hasCode = false;
+            var intro = new StringBuilder();
 			var docsText = new StringBuilder();
 			var codeText = new StringBuilder();
 
-			Action<string, string> save = (docs, code) => sections.Add(new Section { DocsHtml = docs, CodeHtml = code });
+			Action<string, string> save = (docs, code) => documentation.Sections.Add(new Section { DocsHtml = docs, CodeHtml = code });
 			Func<string, string> mapToMarkdown = docs => {
 				if (language.MarkdownMaps != null)
 					docs = language.MarkdownMaps.Aggregate(docs, (currentDocs, map) => Regex.Replace(currentDocs, map.Key, map.Value, RegexOptions.Multiline));
 				return docs;
 			};
-
+            // We want to get all lines before the imports/using
+            bool isIntro = true;
+            bool ignoreLine = false;
 			foreach (var line in lines) {
-				if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line)) {
-					if (hasCode) {
-						save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-						hasCode = false;
-						docsText = new StringBuilder();
-						codeText = new StringBuilder();
-					}
-					docsText.AppendLine(language.CommentMatcher.Replace(line, ""));
-				}
-				else {
-					hasCode = true;
-					codeText.AppendLine(line);
-				}
+                // Find where the end of the intro is
+                // We don't want using in the document
+                ignoreLine = false;
+                if (language.IgnoreOnStart == null || language.IgnoreOnStart.Count == 0)
+                {
+                    isIntro = false;
+                }
+                foreach (string ignore in language.IgnoreOnStart)
+                {
+                    if (line.StartsWith(ignore))
+                    {
+                        isIntro = false;
+                        ignoreLine = true;
+                    }
+                }
+                if (isIntro)
+                {
+                    if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line))
+                    {
+                        intro.AppendLine(language.CommentMatcher.Replace(line, ""));
+                    }
+                }
+                else
+                {
+                    if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line))
+                    {
+                        if (hasCode)
+                        {
+                            save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                            hasCode = false;
+                            docsText = new StringBuilder();
+                            codeText = new StringBuilder();
+                        }
+                        docsText.AppendLine(language.CommentMatcher.Replace(line, ""));
+                    }
+                    else
+                    {
+                        hasCode = true;
+                        if (!ignoreLine)
+                        {
+                            codeText.AppendLine(line);
+                        }
+                    }
+                }
 			}
 			save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-
-			return sections;
+            documentation.Intro = intro.ToString();                
+			return documentation;
 		}
 
 		// Prepares a single chunk of code for HTML output and runs the text of its
@@ -113,7 +152,7 @@ namespace Nocco {
 		// Once all of the code is finished highlighting, we can generate the HTML file
 		// and write out the documentation. Pass the completed sections into the template
 		// found in `Resources/Nocco.cshtml`
-		private static string GenerateHtml(string source, List<Section> sections) {
+		private static string GenerateHtml(string source, DocumentationFile documentation) {
 			int depth;
 			var destination = GetDestination(source, out depth);
 			
@@ -124,10 +163,13 @@ namespace Nocco {
 			htmlTemplate.Title = Path.GetFileName(source);
 			htmlTemplate.PathToCss = Path.Combine(pathToRoot, "nocco.css").Replace('\\', '/');
 		    htmlTemplate.PathToJs = Path.Combine(pathToRoot, "prettify.js").Replace('\\', '/');
+            htmlTemplate.PathToJs1 = Path.Combine(pathToRoot, "jquery-1.9.1.js").Replace('\\', '/');
+            htmlTemplate.PathToJs2 = Path.Combine(pathToRoot, "nocco.js").Replace('\\', '/');            
 			htmlTemplate.GetSourcePath = s => Path.Combine(pathToRoot, Path.ChangeExtension(s.ToLower(), ".html").Substring(2)).Replace('\\', '/');
-			htmlTemplate.Sections = sections;
+            htmlTemplate.Intro = documentation.Intro;
+            htmlTemplate.Sections = documentation.Sections;
 			htmlTemplate.Sources = _files;
-			
+            htmlTemplate.BackToTopPath = pathToRoot + @"Images\arrow-top.png";
 			htmlTemplate.Execute();
 
 			File.WriteAllText(destination, htmlTemplate.Buffer.ToString());
@@ -194,6 +236,7 @@ namespace Nocco {
 			{ ".cs", new Language {
 				Name = "csharp",
 				Symbol = "///?",
+                Symbols = new List<string> { "#region", "#endregion", "///?" },
 				Ignores = new List<string> {
 					"Designer.cs"
 				},
@@ -203,7 +246,8 @@ namespace Nocco {
 					{ @"<returns>([^<]*)</returns>", "**returns**: $1" + Environment.NewLine },
 					{ @"<see\s*cref=""([^""]*)""\s*/>", "see `$1`"},
 					{ @"(</?example>|</?summary>|</?remarks>)", "" },
-				}
+				},
+                IgnoreOnStart = new List<string> { "using" }
 			}},
 			{ ".vb", new Language {
 				Name = "vb.net",
@@ -248,7 +292,11 @@ namespace Nocco {
 				_executingDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 				File.Copy(Path.Combine(_executingDirectory, "Resources", "Nocco.css"), Path.Combine("docs", "nocco.css"), true);
 				File.Copy(Path.Combine(_executingDirectory, "Resources", "prettify.js"), Path.Combine("docs", "prettify.js"), true);
-
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "jquery-1.9.1.js"), Path.Combine("docs", "jquery-1.9.1.js"), true);
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "nocco.js"), Path.Combine("docs", "nocco.js"), true);
+                // Create a folder Images to store the "back to top" arrow
+                Directory.CreateDirectory(@"docs\Images");
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "arrow-top.png"), Path.Combine("docs", "Images", "arrow-top.png"), true);
 				_templateType = SetupRazorTemplate();
 
 				_files = new List<string>();
