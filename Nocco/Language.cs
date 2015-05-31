@@ -1,4 +1,5 @@
-﻿// A smart class used for generating nice HTML based on the language of your
+﻿using System;
+// A smart class used for generating nice HTML based on the language of your
 // choice.
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -16,15 +17,15 @@ namespace Nocco
 
         // We want to consider C# regions as comment symbol
         public List<string> Symbols { get; set; }
-
-        public List<Regex> CommentMatchers
+        public List<Tuple<string, string>> SymbolsMatching { get; set; }
+        public List<Tuple<String, Regex>> CommentMatchers
         {
             get
             {
-                List<Regex> res = new List<Regex>();
+                List<Tuple<string, Regex>> res = new List<Tuple<string, Regex>>();
                 foreach (string symbol in Symbols)
                 {
-                    res.Add(new Regex(@"^\s*" + symbol + @"\s?"));
+                    res.Add(new Tuple<string, Regex>(symbol, new Regex(@"^\s*" + symbol + @"\s?")));
                 }
                 return res;
             }
@@ -32,6 +33,8 @@ namespace Nocco
 
         // We don't want to see includes in the documentation
         public List<string> IgnoreOnStart { get; set; }
+
+        public List<string> EndOfCode { get; set; }
         
 	}
 }

@@ -15,6 +15,80 @@ body {
   margin-right: 35px; 
   padding: 0;
 }
+
+/* #region Navigation */ 
+
+#primary_nav_wrap 
+{ 
+        margin-top:15px; 
+} 
+
+#primary_nav_wrap ul 
+{ 
+        list-style:none;         
+        padding:0; 
+        text-align: center; 
+} 
+
+#primary_nav_wrap ul a 
+{ 
+        display:block; 
+        color:#333; 
+        text-decoration:none; 
+        font-weight:700; 
+        font-size:12px; 
+        line-height:32px; 
+        padding:0 15px; 
+        font-family:"HelveticaNeue","Helvetica Neue",Helvetica,Arial,sans-serif 
+} 
+
+#primary_nav_wrap ul li 
+{ 
+        position:relative; 
+        display: inline-block;
+        cursor: pointer;
+        margin:0; 
+        padding:0; 
+        border-radius: 25px; 
+        background:#eee; 
+} 
+
+
+#primary_nav_wrap ul ul 
+{ 
+        display:none; 
+        position:absolute; 
+        top:100%; 
+        left:0; 
+        padding:0 
+} 
+
+#primary_nav_wrap ul ul li 
+{ 
+        float:none; 
+        width:200px 
+} 
+
+#primary_nav_wrap ul ul a 
+{ 
+        line-height:120%; 
+        padding:10px 15px 
+} 
+
+#primary_nav_wrap ul ul ul 
+{ 
+        top:0; 
+        left:100% 
+} 
+
+#primary_nav_wrap ul li:hover > ul 
+{ 
+        display:block 
+} 
+
+/* #endregion Navigation */ 
+
+
 a {
   color: #261a3b;
 }
@@ -26,6 +100,7 @@ p {
   text-align: justify;
   font-size: 12px;
 }
+/*
 h4, h5, h6 {
   color: #333;
   margin: 6px 0 6px 0;
@@ -40,7 +115,12 @@ h4, h5, h6 {
       margin-bottom: 15px;
       color: #000;
     }
+    */
 
+table 
+{
+    width: 100%;
+}
 #container {
   position: relative;
 }
@@ -97,14 +177,15 @@ tr:hover {
 }*/
 
 td.docs, th.docs {
-    max-width: 450px;
-    min-width: 450px;
+    min-width: 40%;
+    max-width: 40%;
     min-height: 5px;
     padding: 10px 25px 1px 50px;
     overflow-x: hidden;
     overflow-y: hidden;
     vertical-align: top;
     text-align: left;
+    transition: background linear 0.2s;
 }
 .docs pre {
     margin: 0;
@@ -133,13 +214,37 @@ td.docs, th.docs {
 td.docs:hover .pilcrow {
     opacity: 1;
 }
+/*
+td.docs:hover, th.docs:hover{
+    background: #F8F8F8;
+}*/
+
+code
+{
+    overflow-x:hidden;
+}
+
+tr:hover td, tr:hover td {
+    background: #F8F8F8;
+}
+
 td.code, th.code {
     padding: 10px 25px 1px 50px;
-    width: 100%;
+    min-width: 60%;
+    max-width: 60%;
+    background: #F5F5FF;
     vertical-align: top;
-    background: #f5f5ff;
+    overflow-x: hidden;
+    text-wrap: none;
     border-left: 1px solid #e5e5ee;
 }
+/*
+tr:nth-child(even) > td.code , tr:nth-child(even) > th.code  {
+    background: #F5F5FF;
+}
+tr:nth-child(odd) > td.code , tr:nth-child(odd) > th.code  {
+    background: #F0F0FF;
+}*/
 pre, tt, code {
     font-size: 12px;
     line-height: 18px;
@@ -147,6 +252,10 @@ pre, tt, code {
     margin: 0;
     padding: 0;
 }
+/*
+tbody tr:nth-child(odd) {
+   background-color: #ccc;
+}*/
 
 
 .noDecoration
@@ -165,30 +274,30 @@ h1
     margin-bottom: 40px;
 }
 
-h2 
+/*h2 
 {
     margin-top : 20px;
     margin-bottom: 20px;
-}
+}*/
 
 h3
 {
-    margin-top : 20px;
-    margin-bottom: 20px;
+    /*margin-top : 20px;*/
+    /*margin-bottom: 20px;*/
     margin-left :  30px;
 }
 
 h4 
 {
-    margin-top : 20px;
-    margin-bottom: 20px;
+    /*margin-top : 20px;
+    margin-bottom: 20px;*/
     margin-left :  50px;
 }
 
 h5 
 {
-    margin-top : 20px;
-    margin-bottom: 20px;
+    /*margin-top : 20px;
+    margin-bottom: 20px;*/
     margin-left :  70px;
 }
 

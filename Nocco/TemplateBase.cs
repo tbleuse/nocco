@@ -20,6 +20,8 @@ namespace Nocco {
 
 		public StringBuilder Buffer { get; set; }
 
+        public String Menu { get; set; }
+
 		protected TemplateBase() {
 			Buffer = new StringBuilder();
 		}

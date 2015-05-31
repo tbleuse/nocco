@@ -7,6 +7,7 @@
 	<link href="@(PathToCss)" rel="stylesheet" media="all" type="text/css" />
 	<script src="@(PathToJs)" type="text/javascript"></script>
     <script src="@(PathToJs1)" type="text/javascript"></script>
+    <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
     <script src="@(PathToJs2)" type="text/javascript"></script>
 </head>
 <body onload="prettyPrint()">
@@ -14,41 +15,30 @@
         <a href="#" class="back-to-top" style="display: inline;">
             <img src="@BackToTopPath">
         </a>
-		@if (@Sources.Count > 1) {
-			<div id="jump_to">
-				Jump To &hellip;
-				<div id="jump_wrapper">
-					<div id="jump_page">
-						@for (var i = 0; i < Sources.Count; i++) {
-							<a class="source" href="@GetSourcePath(Sources[i])">
-								@Sources[i].Substring(2)
-							</a>
-						}
-					</div>
-				</div>
-			</div>
-		}
+        <nav id="primary_nav_wrap">
+            @Menu            
+        </nav>
         <h1>@Title</h1>
         <p>@Intro</p>
 		<table cellpadding="0" cellspacing="0">
 			<thead>
 				<tr>
-					<th class="docs">
-						
-					</th>
-					<th class="code"></th>
+                    <th class="docs header">
+
+                    </th>
+                    <th class="code header"></th>
 				</tr>
 			</thead>
 			<tbody>
 				@for (var i = 0; i < Sections.Count; i++) {
 					<tr id="section_@(i + 1)">
-						<td class="docs">
+						<td class="docs desc">
 							<div class="pilwrap">
 								<a class="pilcrow" href="#section_@(i + 1)">&#182;</a>
 							</div>
 							@Sections[i].DocsHtml
 						</td>
-						<td class="code">
+						<td class="code desc">
 							<pre><code class='prettyprint'>@Sections[i].CodeHtml</code></pre>
 						</td>
 					</tr>

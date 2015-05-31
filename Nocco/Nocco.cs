@@ -83,10 +83,24 @@ namespace Nocco {
 					docs = language.MarkdownMaps.Aggregate(docs, (currentDocs, map) => Regex.Replace(currentDocs, map.Key, map.Value, RegexOptions.Multiline));
 				return docs;
 			};
+
+            // Defining new index maintainer
+            IndexMaintainer indexMaintainer = new IndexMaintainer
+            {
+                Name = "BASE",
+                Depth = 0,
+                Children = new List<IndexMaintainer>(),
+                IsMethod = false
+            };
+            IndexMaintainer currentIndexMaintainer = indexMaintainer;
             // We want to get all lines before the imports/using
             bool isIntro = true;
             bool ignoreLine = false;
-			foreach (var line in lines) {
+            bool hasMatch = false;
+			foreach (var line in lines.Where(l => l != String.Empty)) {
+                // Make a copy of the line to modify it
+                // We wount with spaces for indentation
+                var lineToSave = line.Replace("\t", "    ");
                 // Find where the end of the intro is
                 // We don't want using in the document
                 ignoreLine = false;
@@ -94,48 +108,182 @@ namespace Nocco {
                 {
                     isIntro = false;
                 }
-                foreach (string ignore in language.IgnoreOnStart)
+                else
                 {
-                    if (line.StartsWith(ignore))
+                    foreach (string ignore in language.IgnoreOnStart)
                     {
-                        isIntro = false;
-                        ignoreLine = true;
+                        if (lineToSave.StartsWith(ignore))
+                        {
+                            isIntro = false;
+                            ignoreLine = true;
+                        }
                     }
                 }
                 if (isIntro)
                 {
-                    if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line))
+                    if (language.CommentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
                     {
-                        intro.AppendLine(language.CommentMatcher.Replace(line, ""));
+                        intro.AppendLine(language.CommentMatcher.Replace(lineToSave, ""));
                     }
                 }
                 else
                 {
-                    if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line))
+                    int i = 0;
+                    hasMatch = false;
+                    while (i < language.CommentMatchers.Count && !hasMatch)
                     {
-                        if (hasCode)
+                        Regex commentMatcher = language.CommentMatchers[i].Item2;
+                        String symbol = language.CommentMatchers[i].Item1;
+                        // Récupérer le symbole
+                        if (commentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
                         {
-                            save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-                            hasCode = false;
-                            docsText = new StringBuilder();
-                            codeText = new StringBuilder();
+                            hasMatch = true;
+                            // MaintainIndex
+                            if (language.SymbolsMatching.Count(m => m.Item1 == symbol) > 0)
+                            {
+                                // New Index maintainer
+                                IndexMaintainer maintainer = new IndexMaintainer
+                                {
+                                    Parent = currentIndexMaintainer,
+                                    Depth = currentIndexMaintainer.Depth + 1,
+                                    Content = lineToSave.Replace(symbol, "").Trim(),
+                                    Children = new List<IndexMaintainer>(),
+                                    IsMethod = false
+                                };
+                                // Is it a block of code?
+                                if (language.EndOfCode.Intersect(language.SymbolsMatching.Where(m => m.Item1 == symbol).Select(m => m.Item2)).Count() > 0)
+                                {
+                                    int whitespace = 0;
+                                    whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
+                                    maintainer.IsMethod = true;
+                                    maintainer.Offset = whitespace;
+                                }
+                                if (currentIndexMaintainer.Name != "BASE")
+                                {
+                                    maintainer.Name = currentIndexMaintainer.Name + "." + (currentIndexMaintainer.Children.Count + 1).ToString();
+                                }
+                                else
+                                {
+                                    maintainer.Name = (currentIndexMaintainer.Children.Count + 1).ToString();
+                                }
+                                int indexOfContent = lineToSave.IndexOf(maintainer.Content);
+                                for (int j = 0; j <= maintainer.Depth; ++j)
+                                {
+                                    lineToSave = lineToSave.Insert(indexOfContent - 1, "#");
+                                }
+                                // On souhaite indiquer la numérotation du menu dans le titre du menu.
+                                // On va donc insérer juste avant le contenu le nom de l'élement d'index courant (qu'on a déterminé plus haut).
+                                indexOfContent = lineToSave.IndexOf(maintainer.Content);
+                                lineToSave = lineToSave.Insert(indexOfContent - 1, maintainer.Name + ".");
+                                // Pour permettre à l'utilisateur de naviguer dans le fichier de documentation, on va insérer un élément <span> vide 
+                                // (et donc invisible l'écran) avec un id unique permettant de le repérer dans le document HTML.
+                                lineToSave += "<span id=\"" + maintainer.Name + "\"></span>";
+
+                                // L'élément d'index créé est ajouté à la liste des enfants de l'élément courant, puis le 
+                                // nouvel élément d'index devient l'élément courant.
+                                currentIndexMaintainer.Children.Add(maintainer);
+                                currentIndexMaintainer = maintainer;
+                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                docsText = new StringBuilder();
+                                codeText = new StringBuilder();
+                                docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
+                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                hasCode = false;
+                                docsText = new StringBuilder();
+                                codeText = new StringBuilder();
+                                break;
+                            }
+                            if (language.SymbolsMatching.Count(m => m.Item2 == symbol) > 0)
+                            {
+                                // Close current IndexMaintainer
+                                if (currentIndexMaintainer.IsMethod == false)
+                                {
+                                    currentIndexMaintainer = currentIndexMaintainer.Parent;
+                                }
+                            }
+                            if (hasCode)
+                            {
+                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                hasCode = false;
+                                docsText = new StringBuilder();
+                                codeText = new StringBuilder();
+                            }
+                            docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
                         }
-                        docsText.AppendLine(language.CommentMatcher.Replace(line, ""));
+                        ++i;
                     }
-                    else
+                    if (!hasMatch)
                     {
                         hasCode = true;
                         if (!ignoreLine)
                         {
-                            codeText.AppendLine(line);
+                            codeText.AppendLine(lineToSave);
+                            if (language.EndOfCode.Contains(lineToSave.Trim()))
+                            {
+                                int whitespace = 0;
+                                whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
+                                if (currentIndexMaintainer.IsMethod && whitespace == currentIndexMaintainer.Offset)
+                                {
+                                    save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                    currentIndexMaintainer = currentIndexMaintainer.Parent;
+                                    hasCode = false;
+                                    docsText = new StringBuilder();
+                                    codeText = new StringBuilder();
+                                }
+                            }
                         }
                     }
                 }
 			}
 			save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-            documentation.Intro = intro.ToString();                
+            documentation.Intro = intro.ToString();
+            String summary = String.Empty;
+            if (indexMaintainer.Children.Count > 0)
+            {
+                summary = BuildSummary(indexMaintainer);
+            }
+            if (summary != string.Empty)
+            {
+                documentation.Intro += "<hr />" + summary + "<hr />";
+            }
+            documentation.Sections = documentation.Sections.Where(s => !((s.CodeHtml == String.Empty || s.CodeHtml ==  "\r\n")
+                && (s.DocsHtml == String.Empty || s.DocsHtml == "\r\n"))).ToList();
 			return documentation;
 		}
+
+        // ## BuildSummary
+        // La méthode **BuildSummary** va construire le sommaire sous forme d'une liste HTML.
+        // On va parcourir l'arboresence des éléments d'index créés dans la méthode **Parse**
+        // pour créer la liste.
+        private static String BuildSummary(IndexMaintainer maintainer)
+        {
+            String res = String.Empty;
+            if (maintainer.Name == "BASE")
+            {
+                res += "<ul class=\"noDecoration\">";
+                foreach (IndexMaintainer child in maintainer.Children)
+                {
+                    res += BuildSummary(child);
+                }
+                res += "</ul>";
+            }
+            else
+            {
+                res += "<li>";
+                res += "<a class=\"menuLink\" href=\"#" + maintainer.Name + "\">" + maintainer.Name + ". " + maintainer.Content + "</a>";
+                if (maintainer.Children.Count > 0)
+                {
+                    res += "<ul class=\"noDecoration\">";
+                    foreach (IndexMaintainer child in maintainer.Children)
+                    {
+                        res += BuildSummary(child);
+                    }
+                    res += "</ul>";
+                }
+                res += "</li>";
+            }
+            return res;
+        }
 
 		// Prepares a single chunk of code for HTML output and runs the text of its
 		// corresponding comment through **Markdown**, using a C# implementation
@@ -168,6 +316,8 @@ namespace Nocco {
 			htmlTemplate.GetSourcePath = s => Path.Combine(pathToRoot, Path.ChangeExtension(s.ToLower(), ".html").Substring(2)).Replace('\\', '/');
             htmlTemplate.Intro = documentation.Intro;
             htmlTemplate.Sections = documentation.Sections;
+            //htmlTemplate.Folders = MakeFolders(_files, pathToRoot).Folders;
+            htmlTemplate.Menu = MakeMenu(MakeFolders(_files, pathToRoot));
 			htmlTemplate.Sources = _files;
             htmlTemplate.BackToTopPath = pathToRoot + @"Images\arrow-top.png";
 			htmlTemplate.Execute();
@@ -177,6 +327,101 @@ namespace Nocco {
             return destination;
 		}
 
+        // ## Make menu
+        public static string MakeMenu(Folder folder)
+        {
+            string menu = string.Empty;
+            if (folder.Files.Count > 0 || folder.Folders.Count > 0)
+            {
+                menu += "<ul>";
+                foreach (Folder fold in folder.Folders)
+                {
+                    menu += "<li>" + fold.Name;
+                    menu += MakeMenu(fold);
+                    menu += "</li>";
+                }
+                foreach (FileUrl file in folder.Files)
+                {
+                    menu += "<li><a href=\"" + file.Url + "\">" + file.Name + "</a>";
+                    menu += "</li>";
+                }
+
+                menu += "</ul>";
+            }
+            return menu;
+        }
+
+        // ## Create Folders from files
+        public static Folder MakeFolders(List<string> files, string pathToRoot)
+        {
+            Folder res = new Folder
+            {
+                Name = "Base",
+                Folders = new List<Folder>(),
+                Files = new List<FileUrl>()
+            };
+            Folder currentFolder = res;
+            foreach (string filepath in files)
+            {
+                var dirs = Path.GetDirectoryName(filepath).Substring(1).Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+                int depth = dirs.Length;
+                if (depth == 0)
+                {
+                    if (res.Folders.Count(f => f.Name == "Files") == 0)
+                    {
+                        res.Folders.Add(new Folder
+                        {
+                            Name = "Files",
+                            Folders = new List<Folder>(),
+                            Files = new List<FileUrl>()
+                        });
+                    }
+                    Folder fold = res.Folders.SingleOrDefault(f => f.Name == "Files");
+                    fold.Files.Add(new FileUrl
+                    {
+                        Url = pathToRoot + Path.ChangeExtension(filepath.Substring(1).Trim(new[] { Path.DirectorySeparatorChar }), "html").ToLower(),
+                        Name = filepath.Substring(1).Trim(new[] { Path.DirectorySeparatorChar })
+                    });
+                }
+                else
+                {
+                    int i = 0;
+                    currentFolder = res;
+                    while (i <= depth)
+                    {
+                        if (i == depth)
+                        {
+                            string[] splits = filepath.Substring(1).Split(new[] { Path.DirectorySeparatorChar });
+                            string name = String.Empty;
+                            if(splits.Length > 0)
+                            {
+                                name = splits[splits.Length - 1];
+                            }
+                            currentFolder.Files.Add(new FileUrl
+                            {
+                                Url = pathToRoot + Path.ChangeExtension(filepath.Substring(1).Trim(new [] { Path.DirectorySeparatorChar }), "html").ToLower(),
+                                Name = name
+                            });
+                        }
+                        else
+                        {
+                            if (currentFolder.Folders.Count(f => f.Name == dirs[i]) == 0)
+                            {
+                                currentFolder.Folders.Add(new Folder
+                                {
+                                    Name = dirs[i],
+                                    Folders = new List<Folder>(),
+                                    Files = new List<FileUrl>()
+                                });
+                            }
+                            currentFolder = currentFolder.Folders.SingleOrDefault(f => f.Name == dirs[i]);
+                        }
+                        ++i;
+                    }
+                }
+            }
+            return res;
+        }
 		//### Helpers & Setup
 
 		// Setup the Razor templating engine so that we can quickly pass the data in
@@ -194,9 +439,16 @@ namespace Nocco {
 			host.NamespaceImports.Add("System");
 
 			GeneratorResults razorResult = null;
-			using (var reader = new StreamReader(Path.Combine(_executingDirectory, "Resources", "Nocco.cshtml"))) {
-				razorResult = new RazorTemplateEngine(host).GenerateCode(reader);
-			}
+            try
+            {
+                using (var reader = new StreamReader(Path.Combine(_executingDirectory, "Resources", "Nocco.cshtml")))
+                {
+                    razorResult = new RazorTemplateEngine(host).GenerateCode(reader);
+                }
+            }
+            catch (Exception e)
+            {
+            }
 
 			var compilerParams = new CompilerParameters {
 				GenerateInMemory = true,
@@ -229,6 +481,14 @@ namespace Nocco {
 			{ ".js", new Language {
 				Name = "javascript",
 				Symbol = "//",
+                Symbols = new List<string> { "// #region", "// #endregion", "// CODEBLOCK", "///?" },
+                SymbolsMatching = new List<Tuple<string,string>> { 
+                    new Tuple<string, string>("// #region", "// #endregion"),
+                    new Tuple<string, string>("// CODEBLOCK", "}"),
+                    new Tuple<string, string>("// CODEBLOCK", "};"),
+                    new Tuple<string, string>("// CODEBLOCK", "});")
+                },
+                EndOfCode = new List<string> { "}", "};", "});" },
 				Ignores = new List<string> {
 					"min.js"
 				}
@@ -236,10 +496,15 @@ namespace Nocco {
 			{ ".cs", new Language {
 				Name = "csharp",
 				Symbol = "///?",
-                Symbols = new List<string> { "#region", "#endregion", "///?" },
+                Symbols = new List<string> { "#region", "#endregion", "// CODEBLOCK", "///?" },
+                SymbolsMatching = new List<Tuple<string,string>> { 
+                    new Tuple<string, string>("#region", "#endregion"),
+                    new Tuple<string, string>("// CODEBLOCK", "}")
+                },
 				Ignores = new List<string> {
 					"Designer.cs"
 				},
+                EndOfCode = new List<string> { "}" },
 				MarkdownMaps = new Dictionary<string, string> {
 					{ @"<c>([^<]*)</c>", "`$1`" },
 					{ @"<param[^\>]*name=""([^""]*)""[^\>]*>([^<]*)</param>", "**argument** *$1*: $2" + Environment.NewLine },
