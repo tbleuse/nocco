@@ -57,6 +57,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="DocumentationFile.cs" />
+    <Compile Include="FileUrl.cs" />
+    <Compile Include="Folder.cs" />
     <Compile Include="IndexMaintainer.cs" />
     <Compile Include="Language.cs" />
     <Compile Include="LinkFileToClass.cs" />

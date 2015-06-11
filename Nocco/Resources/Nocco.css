@@ -47,8 +47,8 @@ body {
         position:relative; 
         display: inline-block;
         cursor: pointer;
-        margin:0; 
-        padding:0; 
+        margin-right: 10px;
+        padding:5px 15px 5px 15px; 
         border-radius: 25px; 
         background:#eee; 
 } 
@@ -71,8 +71,8 @@ body {
 
 #primary_nav_wrap ul ul a 
 { 
-        line-height:120%; 
-        padding:10px 15px 
+        line-height:100%; 
+        padding:5px 15px 5px 15px; 
 } 
 
 #primary_nav_wrap ul ul ul 

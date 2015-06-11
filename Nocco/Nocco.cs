@@ -249,41 +249,7 @@ namespace Nocco {
             documentation.Sections = documentation.Sections.Where(s => !((s.CodeHtml == String.Empty || s.CodeHtml ==  "\r\n")
                 && (s.DocsHtml == String.Empty || s.DocsHtml == "\r\n"))).ToList();
 			return documentation;
-		}
-
-        // ## BuildSummary
-        // La méthode **BuildSummary** va construire le sommaire sous forme d'une liste HTML.
-        // On va parcourir l'arboresence des éléments d'index créés dans la méthode **Parse**
-        // pour créer la liste.
-        private static String BuildSummary(IndexMaintainer maintainer)
-        {
-            String res = String.Empty;
-            if (maintainer.Name == "BASE")
-            {
-                res += "<ul class=\"noDecoration\">";
-                foreach (IndexMaintainer child in maintainer.Children)
-                {
-                    res += BuildSummary(child);
-                }
-                res += "</ul>";
-            }
-            else
-            {
-                res += "<li>";
-                res += "<a class=\"menuLink\" href=\"#" + maintainer.Name + "\">" + maintainer.Name + ". " + maintainer.Content + "</a>";
-                if (maintainer.Children.Count > 0)
-                {
-                    res += "<ul class=\"noDecoration\">";
-                    foreach (IndexMaintainer child in maintainer.Children)
-                    {
-                        res += BuildSummary(child);
-                    }
-                    res += "</ul>";
-                }
-                res += "</li>";
-            }
-            return res;
-        }
+		}       
 
 		// Prepares a single chunk of code for HTML output and runs the text of its
 		// corresponding comment through **Markdown**, using a C# implementation
@@ -326,8 +292,41 @@ namespace Nocco {
 
             return destination;
 		}
+        #region Navigation utils
+        // ## BuildSummary
+        // Should be in a chtml template but cannot do recursivity yet
+        private static String BuildSummary(IndexMaintainer maintainer)
+        {
+            String res = String.Empty;
+            if (maintainer.Name == "BASE")
+            {
+                res += "<ul class=\"noDecoration\">";
+                foreach (IndexMaintainer child in maintainer.Children)
+                {
+                    res += BuildSummary(child);
+                }
+                res += "</ul>";
+            }
+            else
+            {
+                res += "<li>";
+                res += "<a class=\"menuLink\" href=\"#" + maintainer.Name + "\">" + maintainer.Name + ". " + maintainer.Content + "</a>";
+                if (maintainer.Children.Count > 0)
+                {
+                    res += "<ul class=\"noDecoration\">";
+                    foreach (IndexMaintainer child in maintainer.Children)
+                    {
+                        res += BuildSummary(child);
+                    }
+                    res += "</ul>";
+                }
+                res += "</li>";
+            }
+            return res;
+        }
 
         // ## Make menu
+        // Should be in a chtml template but cannot do recursivity yet
         public static string MakeMenu(Folder folder)
         {
             string menu = string.Empty;
@@ -422,7 +421,8 @@ namespace Nocco {
             }
             return res;
         }
-		//### Helpers & Setup
+        #endregion
+        //### Helpers & Setup
 
 		// Setup the Razor templating engine so that we can quickly pass the data in
 		// and generate HTML.
@@ -439,15 +439,9 @@ namespace Nocco {
 			host.NamespaceImports.Add("System");
 
 			GeneratorResults razorResult = null;
-            try
+            using (var reader = new StreamReader(Path.Combine(_executingDirectory, "Resources", "Nocco.cshtml")))
             {
-                using (var reader = new StreamReader(Path.Combine(_executingDirectory, "Resources", "Nocco.cshtml")))
-                {
-                    razorResult = new RazorTemplateEngine(host).GenerateCode(reader);
-                }
-            }
-            catch (Exception e)
-            {
+                razorResult = new RazorTemplateEngine(host).GenerateCode(reader);
             }
 
 			var compilerParams = new CompilerParameters {
