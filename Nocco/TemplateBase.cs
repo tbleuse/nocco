@@ -12,7 +12,13 @@ namespace Nocco {
         public string PathToJs { get; set; }
         public string PathToJs1 { get; set; }
         public string PathToJs2 { get; set; }
+
+        // This is HTML Code
+        public string ExtraCss { get; set; }
+
+
 		public Func<string, string> GetSourcePath { get; set; }
+        public bool IsCodeFile { get; set; }
         public String Intro { get; set; }
 		public List<Section> Sections { get; set; }
 		public List<string> Sources { get; set; }
@@ -20,6 +26,7 @@ namespace Nocco {
 
 		public StringBuilder Buffer { get; set; }
 
+        // This is HTML Code
         public String Menu { get; set; }
 
 		protected TemplateBase() {

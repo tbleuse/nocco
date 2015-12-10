@@ -55,27 +55,47 @@ namespace Nocco {
 		// Generate the documentation for a source file by reading it in, splitting it
 		// up into comment/code sections, highlighting them for the appropriate language,
 		// and merging them into an HTML template.
-		private static string GenerateDocumentation(string source) {
+        private static string GenerateDocumentation(string source, bool generateSummary)
+        {
 			var lines = File.ReadAllLines(source);
             // We remove the first line (GENERATE comment)
             lines = lines.Where((val, idx) => idx != 0).ToArray();
-			var documentation = Parse(source, lines);
-			Hightlight(documentation.Sections);
+			var documentation = Parse(source, lines, generateSummary);
+			Hightlight(documentation);
             return GenerateHtml(source, documentation);
-		}
+		}     
 
 		// Given a string of source code, parse out each comment and the code that
 		// follows it, and create an individual `Section` for it.
-		private static DocumentationFile Parse(string source, string[] lines) {
+		private static DocumentationFile Parse(string source, string[] lines, bool generateSummary) {
             DocumentationFile documentation = new DocumentationFile
             {
                 Sections = new List<Section>()
             };
 			var language = GetLanguage(source);
+          
 			var hasCode = false;
             var intro = new StringBuilder();
 			var docsText = new StringBuilder();
 			var codeText = new StringBuilder();
+
+            // If the language is mardown, it means that the file is
+            // a pure documentation file, so every line is copied and
+            // the file is considered as a file with only a Introduction
+            if (language.Name == "markdown")
+            {
+                documentation.IsCodeFile = false;
+                foreach (var line in lines)
+                {
+                    intro.AppendLine(line);
+                }
+                documentation.Intro = intro.ToString();
+                return documentation;
+            }
+            else
+            {
+                documentation.IsCodeFile = true;
+            }
 
 			Action<string, string> save = (docs, code) => documentation.Sections.Add(new Section { DocsHtml = docs, CodeHtml = code });
 			Func<string, string> mapToMarkdown = docs => {
@@ -84,167 +104,195 @@ namespace Nocco {
 				return docs;
 			};
 
-            // Defining new index maintainer
-            IndexMaintainer indexMaintainer = new IndexMaintainer
+            if (!generateSummary)
             {
-                Name = "BASE",
-                Depth = 0,
-                Children = new List<IndexMaintainer>(),
-                IsMethod = false
-            };
-            IndexMaintainer currentIndexMaintainer = indexMaintainer;
-            // We want to get all lines before the imports/using
-            bool isIntro = true;
-            bool ignoreLine = false;
-            bool hasMatch = false;
-			foreach (var line in lines.Where(l => l != String.Empty)) {
-                // Make a copy of the line to modify it
-                // We wount with spaces for indentation
-                var lineToSave = line.Replace("\t", "    ");
-                // Find where the end of the intro is
-                // We don't want using in the document
-                ignoreLine = false;
-                if (language.IgnoreOnStart == null || language.IgnoreOnStart.Count == 0)
+                foreach (var line in lines)
                 {
-                    isIntro = false;
-                }
-                else
-                {
-                    foreach (string ignore in language.IgnoreOnStart)
+                    if (language.CommentMatcher.IsMatch(line) && !language.CommentFilter.IsMatch(line))
                     {
-                        if (lineToSave.StartsWith(ignore))
+                        if (hasCode)
                         {
-                            isIntro = false;
-                            ignoreLine = true;
+                            save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                            hasCode = false;
+                            docsText = new StringBuilder();
+                            codeText = new StringBuilder();
                         }
+                        docsText.AppendLine(language.CommentMatcher.Replace(line, ""));
                     }
-                }
-                if (isIntro)
-                {
-                    if (language.CommentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
-                    {
-                        intro.AppendLine(language.CommentMatcher.Replace(lineToSave, ""));
-                    }
-                }
-                else
-                {
-                    int i = 0;
-                    hasMatch = false;
-                    while (i < language.CommentMatchers.Count && !hasMatch)
-                    {
-                        Regex commentMatcher = language.CommentMatchers[i].Item2;
-                        String symbol = language.CommentMatchers[i].Item1;
-                        // Récupérer le symbole
-                        if (commentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
-                        {
-                            hasMatch = true;
-                            // MaintainIndex
-                            if (language.SymbolsMatching.Count(m => m.Item1 == symbol) > 0)
-                            {
-                                // New Index maintainer
-                                IndexMaintainer maintainer = new IndexMaintainer
-                                {
-                                    Parent = currentIndexMaintainer,
-                                    Depth = currentIndexMaintainer.Depth + 1,
-                                    Content = lineToSave.Replace(symbol, "").Trim(),
-                                    Children = new List<IndexMaintainer>(),
-                                    IsMethod = false
-                                };
-                                // Is it a block of code?
-                                if (language.EndOfCode.Intersect(language.SymbolsMatching.Where(m => m.Item1 == symbol).Select(m => m.Item2)).Count() > 0)
-                                {
-                                    int whitespace = 0;
-                                    whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
-                                    maintainer.IsMethod = true;
-                                    maintainer.Offset = whitespace;
-                                }
-                                if (currentIndexMaintainer.Name != "BASE")
-                                {
-                                    maintainer.Name = currentIndexMaintainer.Name + "." + (currentIndexMaintainer.Children.Count + 1).ToString();
-                                }
-                                else
-                                {
-                                    maintainer.Name = (currentIndexMaintainer.Children.Count + 1).ToString();
-                                }
-                                int indexOfContent = lineToSave.IndexOf(maintainer.Content);
-                                for (int j = 0; j <= maintainer.Depth; ++j)
-                                {
-                                    lineToSave = lineToSave.Insert(indexOfContent - 1, "#");
-                                }
-                                // On souhaite indiquer la numérotation du menu dans le titre du menu.
-                                // On va donc insérer juste avant le contenu le nom de l'élement d'index courant (qu'on a déterminé plus haut).
-                                indexOfContent = lineToSave.IndexOf(maintainer.Content);
-                                lineToSave = lineToSave.Insert(indexOfContent - 1, maintainer.Name + ".");
-                                // Pour permettre à l'utilisateur de naviguer dans le fichier de documentation, on va insérer un élément <span> vide 
-                                // (et donc invisible l'écran) avec un id unique permettant de le repérer dans le document HTML.
-                                lineToSave += "<span id=\"" + maintainer.Name + "\"></span>";
-
-                                // L'élément d'index créé est ajouté à la liste des enfants de l'élément courant, puis le 
-                                // nouvel élément d'index devient l'élément courant.
-                                currentIndexMaintainer.Children.Add(maintainer);
-                                currentIndexMaintainer = maintainer;
-                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-                                docsText = new StringBuilder();
-                                codeText = new StringBuilder();
-                                docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
-                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-                                hasCode = false;
-                                docsText = new StringBuilder();
-                                codeText = new StringBuilder();
-                                break;
-                            }
-                            if (language.SymbolsMatching.Count(m => m.Item2 == symbol) > 0)
-                            {
-                                // Close current IndexMaintainer
-                                if (currentIndexMaintainer.IsMethod == false)
-                                {
-                                    currentIndexMaintainer = currentIndexMaintainer.Parent;
-                                }
-                            }
-                            if (hasCode)
-                            {
-                                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-                                hasCode = false;
-                                docsText = new StringBuilder();
-                                codeText = new StringBuilder();
-                            }
-                            docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
-                        }
-                        ++i;
-                    }
-                    if (!hasMatch)
+                    else
                     {
                         hasCode = true;
-                        if (!ignoreLine)
+                        codeText.AppendLine(line);
+                    }
+                }
+                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+            }
+
+            else
+            {
+                // Defining new index maintainer
+                IndexMaintainer indexMaintainer = new IndexMaintainer
+                {
+                    Name = "BASE",
+                    Depth = 0,
+                    Children = new List<IndexMaintainer>(),
+                    IsMethod = false
+                };
+                IndexMaintainer currentIndexMaintainer = indexMaintainer;
+                // We want to get all lines before the imports/using
+                bool isIntro = true;
+                bool ignoreLine = false;
+                bool hasMatch = false;
+                foreach (var line in lines.Where(l => l != String.Empty))
+                {
+                    // Make a copy of the line to modify it
+                    // We wount with spaces for indentation
+                    var lineToSave = line.Replace("\t", "    ");
+                    // Find where the end of the intro is
+                    // We don't want using in the document
+                    ignoreLine = false;
+                    if (language.IgnoreOnStart == null || language.IgnoreOnStart.Count == 0)
+                    {
+                        isIntro = false;
+                    }
+                    else
+                    {
+                        foreach (string ignore in language.IgnoreOnStart)
                         {
-                            codeText.AppendLine(lineToSave);
-                            if (language.EndOfCode.Contains(lineToSave.Trim()))
+                            if (lineToSave.StartsWith(ignore))
                             {
-                                int whitespace = 0;
-                                whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
-                                if (currentIndexMaintainer.IsMethod && whitespace == currentIndexMaintainer.Offset)
+                                isIntro = false;
+                                ignoreLine = true;
+                            }
+                        }
+                    }
+                    if (isIntro)
+                    {
+                        if (language.CommentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
+                        {
+                            intro.AppendLine(language.CommentMatcher.Replace(lineToSave, ""));
+                        }
+                    }
+                    else
+                    {
+                        int i = 0;
+                        hasMatch = false;
+                        while (i < language.CommentMatchers.Count && !hasMatch)
+                        {
+                            Regex commentMatcher = language.CommentMatchers[i].Item2;
+                            String symbol = language.CommentMatchers[i].Item1;
+                            // Récupérer le symbole
+                            if (commentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
+                            {
+                                hasMatch = true;
+                                // MaintainIndex
+                                if (language.SymbolsMatching.Count(m => m.Item1 == symbol) > 0)
+                                {
+                                    // New Index maintainer
+                                    IndexMaintainer maintainer = new IndexMaintainer
+                                    {
+                                        Parent = currentIndexMaintainer,
+                                        Depth = currentIndexMaintainer.Depth + 1,
+                                        Content = lineToSave.Replace(symbol, "").Trim(),
+                                        Children = new List<IndexMaintainer>(),
+                                        IsMethod = false
+                                    };
+                                    // Is it a block of code?
+                                    if (language.EndOfCode.Intersect(language.SymbolsMatching.Where(m => m.Item1 == symbol).Select(m => m.Item2)).Count() > 0)
+                                    {
+                                        int whitespace = 0;
+                                        whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
+                                        maintainer.IsMethod = true;
+                                        maintainer.Offset = whitespace;
+                                    }
+                                    if (currentIndexMaintainer.Name != "BASE")
+                                    {
+                                        maintainer.Name = currentIndexMaintainer.Name + "." + (currentIndexMaintainer.Children.Count + 1).ToString();
+                                    }
+                                    else
+                                    {
+                                        maintainer.Name = (currentIndexMaintainer.Children.Count + 1).ToString();
+                                    }
+                                    int indexOfContent = lineToSave.IndexOf(maintainer.Content);
+                                    for (int j = 0; j <= maintainer.Depth; ++j)
+                                    {
+                                        lineToSave = lineToSave.Insert(indexOfContent - 1, "#");
+                                    }
+                                    // On souhaite indiquer la numérotation du menu dans le titre du menu.
+                                    // On va donc insérer juste avant le contenu le nom de l'élement d'index courant (qu'on a déterminé plus haut).
+                                    indexOfContent = lineToSave.IndexOf(maintainer.Content);
+                                    lineToSave = lineToSave.Insert(indexOfContent - 1, maintainer.Name + ".");
+                                    // Pour permettre à l'utilisateur de naviguer dans le fichier de documentation, on va insérer un élément <span> vide 
+                                    // (et donc invisible l'écran) avec un id unique permettant de le repérer dans le document HTML.
+                                    lineToSave += "<span id=\"" + maintainer.Name + "\"></span>";
+
+                                    // L'élément d'index créé est ajouté à la liste des enfants de l'élément courant, puis le 
+                                    // nouvel élément d'index devient l'élément courant.
+                                    currentIndexMaintainer.Children.Add(maintainer);
+                                    currentIndexMaintainer = maintainer;
+                                    save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                    docsText = new StringBuilder();
+                                    codeText = new StringBuilder();
+                                    docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
+                                    save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                    hasCode = false;
+                                    docsText = new StringBuilder();
+                                    codeText = new StringBuilder();
+                                    break;
+                                }
+                                if (language.SymbolsMatching.Count(m => m.Item2 == symbol) > 0)
+                                {
+                                    // Close current IndexMaintainer
+                                    if (currentIndexMaintainer.IsMethod == false)
+                                    {
+                                        currentIndexMaintainer = currentIndexMaintainer.Parent;
+                                    }
+                                }
+                                if (hasCode)
                                 {
                                     save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-                                    currentIndexMaintainer = currentIndexMaintainer.Parent;
                                     hasCode = false;
                                     docsText = new StringBuilder();
                                     codeText = new StringBuilder();
                                 }
+                                docsText.AppendLine(commentMatcher.Replace(lineToSave, ""));
+                            }
+                            ++i;
+                        }
+                        if (!hasMatch)
+                        {
+                            hasCode = true;
+                            if (!ignoreLine)
+                            {
+                                codeText.AppendLine(lineToSave);
+                                if (language.EndOfCode.Contains(lineToSave.Trim()))
+                                {
+                                    int whitespace = 0;
+                                    whitespace = lineToSave.TakeWhile(Char.IsWhiteSpace).Count();
+                                    if (currentIndexMaintainer.IsMethod && whitespace == currentIndexMaintainer.Offset)
+                                    {
+                                        save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                                        currentIndexMaintainer = currentIndexMaintainer.Parent;
+                                        hasCode = false;
+                                        docsText = new StringBuilder();
+                                        codeText = new StringBuilder();
+                                    }
+                                }
                             }
                         }
                     }
                 }
-			}
-			save(mapToMarkdown(docsText.ToString()), codeText.ToString());
-            documentation.Intro = intro.ToString();
-            String summary = String.Empty;
-            if (indexMaintainer.Children.Count > 0)
-            {
-                summary = BuildSummary(indexMaintainer);
-            }
-            if (summary != string.Empty)
-            {
-                documentation.Intro += "<hr />" + summary + "<hr />";
+                save(mapToMarkdown(docsText.ToString()), codeText.ToString());
+                documentation.Intro = intro.ToString();
+                String summary = String.Empty;
+                if (indexMaintainer.Children.Count > 0)
+                {
+                    summary = BuildSummary(indexMaintainer);
+                }
+                if (summary != string.Empty)
+                {
+                    documentation.Intro += "<hr />" + summary + "<hr />";
+                }
             }
             documentation.Sections = documentation.Sections.Where(s => !((s.CodeHtml == String.Empty || s.CodeHtml ==  "\r\n")
                 && (s.DocsHtml == String.Empty || s.DocsHtml == "\r\n"))).ToList();
@@ -254,10 +302,11 @@ namespace Nocco {
 		// Prepares a single chunk of code for HTML output and runs the text of its
 		// corresponding comment through **Markdown**, using a C# implementation
 		// called [MarkdownSharp](http://code.google.com/p/markdownsharp/).
-		private static void Hightlight(List<Section> sections) {
+		private static void Hightlight(DocumentationFile documentationFile) {
 			var markdown = new MarkdownSharp.Markdown();
 
-			foreach (var section in sections) {
+            documentationFile.Intro = markdown.Transform(documentationFile.Intro);
+			foreach (var section in documentationFile.Sections) {
 				section.DocsHtml = markdown.Transform(section.DocsHtml);
 				section.CodeHtml = System.Web.HttpUtility.HtmlEncode(section.CodeHtml);
 			}
@@ -282,6 +331,7 @@ namespace Nocco {
 			htmlTemplate.GetSourcePath = s => Path.Combine(pathToRoot, Path.ChangeExtension(s.ToLower(), ".html").Substring(2)).Replace('\\', '/');
             htmlTemplate.Intro = documentation.Intro;
             htmlTemplate.Sections = documentation.Sections;
+            htmlTemplate.IsCodeFile = documentation.IsCodeFile;
             //htmlTemplate.Folders = MakeFolders(_files, pathToRoot).Folders;
             htmlTemplate.Menu = MakeMenu(MakeFolders(_files, pathToRoot));
 			htmlTemplate.Sources = _files;
@@ -472,15 +522,18 @@ namespace Nocco {
 		// translates things like
 		// [XML documentation comments](http://msdn.microsoft.com/en-us/library/b2s063f7.aspx) into Markdown.
 		private static Dictionary<string, Language> Languages = new Dictionary<string, Language> {
+            {".md", new Language{
+                Name="markdown"
+            }},
 			{ ".js", new Language {
 				Name = "javascript",
 				Symbol = "//",
-                Symbols = new List<string> { "// #region", "// #endregion", "// CODEBLOCK", "///?" },
+                Symbols = new List<string> { "// #region", "// #endregion", "// #+", "///?" },
                 SymbolsMatching = new List<Tuple<string,string>> { 
                     new Tuple<string, string>("// #region", "// #endregion"),
-                    new Tuple<string, string>("// CODEBLOCK", "}"),
-                    new Tuple<string, string>("// CODEBLOCK", "};"),
-                    new Tuple<string, string>("// CODEBLOCK", "});")
+                    new Tuple<string, string>("// #+", "}"),
+                    new Tuple<string, string>("// #+", "};"),
+                    new Tuple<string, string>("// #+", "});")
                 },
                 EndOfCode = new List<string> { "}", "};", "});" },
 				Ignores = new List<string> {
@@ -490,10 +543,10 @@ namespace Nocco {
 			{ ".cs", new Language {
 				Name = "csharp",
 				Symbol = "///?",
-                Symbols = new List<string> { "#region", "#endregion", "// CODEBLOCK", "///?" },
+                Symbols = new List<string> { "#region", "#endregion", "// #+", "///?" },
                 SymbolsMatching = new List<Tuple<string,string>> { 
                     new Tuple<string, string>("#region", "#endregion"),
-                    new Tuple<string, string>("// CODEBLOCK", "}")
+                    new Tuple<string, string>("// #+", "}")
                 },
 				Ignores = new List<string> {
 					"Designer.cs"
@@ -544,8 +597,34 @@ namespace Nocco {
 
 		// Find all the files that match the pattern(s) passed in as arguments and
 		// generate documentation for each one.
-		public static void Generate(string[] targets) {
-			if (targets.Length > 0) {
+		public static void Generate(string[] args) {
+            Regex targetReg = new Regex("\\*\\.[a-z]+");           
+            List<string> targets = new List<string>();
+            bool generateSummary = false;
+            bool optionFile = false;
+            string optionPath = string.Empty;
+            foreach (var arg in args)
+            {
+                if (optionFile)
+                {
+                    optionPath = arg;
+                }
+                if (targetReg.IsMatch(arg))
+                {
+                    targets.Add(arg);
+                }
+                else if(arg == "--summary")
+                {
+                    generateSummary = true;
+                }
+                else if (arg == "--conf")
+                {
+                    optionFile = true;
+                }
+               
+            }
+
+			if (targets.Count > 0) {
 				Directory.CreateDirectory("docs");
 
 				_executingDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
@@ -583,7 +662,8 @@ namespace Nocco {
                 foreach (var file in _files)
                 {
                     var lines = File.ReadAllLines(file);
-                    if (lines.Length > 0 && (lines[0].StartsWith("// GENERATE") || lines[0].StartsWith("//GENERATE")))
+                    if (lines.Length > 0 && 
+                        (lines[0].StartsWith("// GENERATE") || lines[0].StartsWith("//GENERATE") || file.EndsWith(".md")))
                     {
                         tempFiles.Add(file);
                     }
@@ -593,12 +673,16 @@ namespace Nocco {
                 List<String> allFiles = new List<string>();
                 List<LinkFileToClass> allLinks = new List<LinkFileToClass>();
                 foreach (var file in _files)
-                    allFiles.Add(GenerateDocumentation(file));
+                {
+                    allFiles.Add(GenerateDocumentation(file, generateSummary));
+                }
 
 
                 Regex reg = new Regex(@"LINK\\(\w+(\#\w+)?)");
                 foreach (var file in allFiles)
+                {
                     allLinks.Add(new LinkFileToClass(file.Substring(7)));
+                }
 
                 foreach (var file in allFiles)
                 {
@@ -625,7 +709,13 @@ namespace Nocco {
                                     {
                                         anchorName = anchorTab[1];
                                     }
-                                    LinkFileToClass link = allLinks.SingleOrDefault(l => l.FileTypeName == typeName.ToUpper());
+                                    LinkFileToClass link = null;
+                                    // A bit of random...
+                                    // Can do better by matching on folders
+                                    if (allLinks.Count(l => l.FileTypeName == typeName.ToUpper()) > 0)
+                                    {
+                                        link = allLinks.First(l => l.FileTypeName == typeName.ToUpper());
+                                    }                                    
                                     if (link != null)
                                     {
                                         if (anchorName == String.Empty)

@@ -9,5 +9,6 @@ namespace Nocco
     {
         public String Intro { get; set; }
         public List<Section> Sections { get; set; }
+        public bool IsCodeFile { get; set; }
     }
 }
