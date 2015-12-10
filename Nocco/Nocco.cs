@@ -528,12 +528,12 @@ namespace Nocco {
 			{ ".js", new Language {
 				Name = "javascript",
 				Symbol = "//",
-                Symbols = new List<string> { "// #region", "// #endregion", "// #+", "///?" },
+                Symbols = new List<string> { "// #region", "// #endregion", "// cb", "///?" },
                 SymbolsMatching = new List<Tuple<string,string>> { 
                     new Tuple<string, string>("// #region", "// #endregion"),
-                    new Tuple<string, string>("// #+", "}"),
-                    new Tuple<string, string>("// #+", "};"),
-                    new Tuple<string, string>("// #+", "});")
+                    new Tuple<string, string>("// cb", "}"),
+                    new Tuple<string, string>("// cb", "};"),
+                    new Tuple<string, string>("// cb", "});")
                 },
                 EndOfCode = new List<string> { "}", "};", "});" },
 				Ignores = new List<string> {
@@ -543,10 +543,10 @@ namespace Nocco {
 			{ ".cs", new Language {
 				Name = "csharp",
 				Symbol = "///?",
-                Symbols = new List<string> { "#region", "#endregion", "// #+", "///?" },
+                Symbols = new List<string> { "#region", "#endregion", "// cb", "///?" },
                 SymbolsMatching = new List<Tuple<string,string>> { 
                     new Tuple<string, string>("#region", "#endregion"),
-                    new Tuple<string, string>("// #+", "}")
+                    new Tuple<string, string>("// cb", "}")
                 },
 				Ignores = new List<string> {
 					"Designer.cs"
