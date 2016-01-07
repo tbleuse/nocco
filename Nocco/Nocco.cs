@@ -1,4 +1,5 @@
-﻿// **Nocco** is a quick-and-dirty, literate-programming-style documentation
+﻿// GENERATE
+// **Nocco** is a quick-and-dirty, literate-programming-style documentation
 // generator. It is a C# port of [Docco](http://jashkenas.github.com/docco/),
 // which was written by [Jeremy Ashkenas](https://github.com/jashkenas) in
 // Coffescript and runs on node.js.
@@ -59,7 +60,7 @@ namespace Nocco {
         {
 			var lines = File.ReadAllLines(source);
             // We remove the first line (GENERATE comment)
-            lines = lines.Where((val, idx) => idx != 0).ToArray();
+            lines = lines.Where((val, idx) => !val.Contains("GENERATE")).ToArray();
 			var documentation = Parse(source, lines, generateSummary);
 			Hightlight(documentation);
             return GenerateHtml(source, documentation);
@@ -67,6 +68,7 @@ namespace Nocco {
 
 		// Given a string of source code, parse out each comment and the code that
 		// follows it, and create an individual `Section` for it.
+        // This function return a [documentation file](LINK\DocumentationFile).
 		private static DocumentationFile Parse(string source, string[] lines, bool generateSummary) {
             DocumentationFile documentation = new DocumentationFile
             {
@@ -104,6 +106,7 @@ namespace Nocco {
 				return docs;
 			};
 
+            // If the use chose to not generate the summary, Nocco behaves like [Don Wilson's version](https://github.com/dontangg/nocco)
             if (!generateSummary)
             {
                 foreach (var line in lines)
@@ -130,7 +133,7 @@ namespace Nocco {
 
             else
             {
-                // Defining new index maintainer
+                // Defining new [index maintainer](LINK\IndexMaintainer) to be at the top of summary.
                 IndexMaintainer indexMaintainer = new IndexMaintainer
                 {
                     Name = "BASE",
@@ -139,7 +142,7 @@ namespace Nocco {
                     IsMethod = false
                 };
                 IndexMaintainer currentIndexMaintainer = indexMaintainer;
-                // We want to get all lines before the imports/using
+                // We want to get all lines before the imports/using to be the introduction of the file.
                 bool isIntro = true;
                 bool ignoreLine = false;
                 bool hasMatch = false;
@@ -149,7 +152,8 @@ namespace Nocco {
                     // We wount with spaces for indentation
                     var lineToSave = line.Replace("\t", "    ");
                     // Find where the end of the intro is
-                    // We don't want using in the document
+                    // We don't want imports in the final document, so we use the `IgnoreOnStart` property
+                    // of the [language](LINK\Language).
                     ignoreLine = false;
                     if (language.IgnoreOnStart == null || language.IgnoreOnStart.Count == 0)
                     {
@@ -180,12 +184,10 @@ namespace Nocco {
                         while (i < language.CommentMatchers.Count && !hasMatch)
                         {
                             Regex commentMatcher = language.CommentMatchers[i].Item2;
-                            String symbol = language.CommentMatchers[i].Item1;
-                            // Récupérer le symbole
+                            String symbol = language.CommentMatchers[i].Item1;                            
                             if (commentMatcher.IsMatch(lineToSave) && !language.CommentFilter.IsMatch(lineToSave))
                             {
                                 hasMatch = true;
-                                // MaintainIndex
                                 if (language.SymbolsMatching.Count(m => m.Item1 == symbol) > 0)
                                 {
                                     // New Index maintainer
@@ -218,16 +220,15 @@ namespace Nocco {
                                     {
                                         lineToSave = lineToSave.Insert(indexOfContent - 1, "#");
                                     }
-                                    // On souhaite indiquer la numérotation du menu dans le titre du menu.
-                                    // On va donc insérer juste avant le contenu le nom de l'élement d'index courant (qu'on a déterminé plus haut).
+                                    // We want t get the number of the menu item (1.1.1, 2.1 ...) in its title so we insert the name of the current
+                                    // index element just before the content.
                                     indexOfContent = lineToSave.IndexOf(maintainer.Content);
                                     lineToSave = lineToSave.Insert(indexOfContent - 1, maintainer.Name + ".");
-                                    // Pour permettre à l'utilisateur de naviguer dans le fichier de documentation, on va insérer un élément <span> vide 
-                                    // (et donc invisible l'écran) avec un id unique permettant de le repérer dans le document HTML.
+                                    // To allow user to navigation in the documentation file, we insert an empty `<span>` element with an unique `id`.                           
                                     lineToSave += "<span id=\"" + maintainer.Name + "\"></span>";
 
-                                    // L'élément d'index créé est ajouté à la liste des enfants de l'élément courant, puis le 
-                                    // nouvel élément d'index devient l'élément courant.
+                                    // We add the new index element to the children list of the current index element, then
+                                    // the new element becomes the current element.
                                     currentIndexMaintainer.Children.Add(maintainer);
                                     currentIndexMaintainer = maintainer;
                                     save(mapToMarkdown(docsText.ToString()), codeText.ToString());
@@ -325,15 +326,19 @@ namespace Nocco {
 
 			htmlTemplate.Title = Path.GetFileName(source);
 			htmlTemplate.PathToCss = Path.Combine(pathToRoot, "nocco.css").Replace('\\', '/');
+            htmlTemplate.PathToCss1 = Path.Combine(pathToRoot, "jquery.treeView.css").Replace('\\', '/');
 		    htmlTemplate.PathToJs = Path.Combine(pathToRoot, "prettify.js").Replace('\\', '/');
             htmlTemplate.PathToJs1 = Path.Combine(pathToRoot, "jquery-1.9.1.js").Replace('\\', '/');
-            htmlTemplate.PathToJs2 = Path.Combine(pathToRoot, "nocco.js").Replace('\\', '/');            
+            htmlTemplate.PathToJs2 = Path.Combine(pathToRoot, "nocco.js").Replace('\\', '/');
+            htmlTemplate.PathToJs3 = Path.Combine(pathToRoot, "jquery.treeView.js").Replace('\\', '/');            
 			htmlTemplate.GetSourcePath = s => Path.Combine(pathToRoot, Path.ChangeExtension(s.ToLower(), ".html").Substring(2)).Replace('\\', '/');
             htmlTemplate.Intro = documentation.Intro;
             htmlTemplate.Sections = documentation.Sections;
             htmlTemplate.IsCodeFile = documentation.IsCodeFile;
-            //htmlTemplate.Folders = MakeFolders(_files, pathToRoot).Folders;
-            htmlTemplate.Menu = MakeMenu(MakeFolders(_files, pathToRoot));
+            var menu = MakeMenu(MakeFolders(_files, pathToRoot));
+            menu = menu.Remove(0, 4);
+            menu = menu.Remove(menu.Length - 5, 5);
+            htmlTemplate.Menu = menu;
 			htmlTemplate.Sources = _files;
             htmlTemplate.BackToTopPath = pathToRoot + @"Images\arrow-top.png";
 			htmlTemplate.Execute();
@@ -343,7 +348,7 @@ namespace Nocco {
             return destination;
 		}
         #region Navigation utils
-        // ## BuildSummary
+        // cb BuildSummary
         // Should be in a chtml template but cannot do recursivity yet
         private static String BuildSummary(IndexMaintainer maintainer)
         {
@@ -375,7 +380,7 @@ namespace Nocco {
             return res;
         }
 
-        // ## Make menu
+        // cb Make menu
         // Should be in a chtml template but cannot do recursivity yet
         public static string MakeMenu(Folder folder)
         {
@@ -385,7 +390,7 @@ namespace Nocco {
                 menu += "<ul>";
                 foreach (Folder fold in folder.Folders)
                 {
-                    menu += "<li>" + fold.Name;
+                    menu += "<li><span class=\"folder\">" + fold.Name + "</span>";
                     menu += MakeMenu(fold);
                     menu += "</li>";
                 }
@@ -400,7 +405,7 @@ namespace Nocco {
             return menu;
         }
 
-        // ## Create Folders from files
+        // cb Create Folders from files
         public static Folder MakeFolders(List<string> files, string pathToRoot)
         {
             Folder res = new Folder
@@ -629,13 +634,26 @@ namespace Nocco {
 
 				_executingDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 				File.Copy(Path.Combine(_executingDirectory, "Resources", "Nocco.css"), Path.Combine("docs", "nocco.css"), true);
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "jquery.treeView.css"), Path.Combine("docs", "jquery.treeView.css"), true);
 				File.Copy(Path.Combine(_executingDirectory, "Resources", "prettify.js"), Path.Combine("docs", "prettify.js"), true);
                 File.Copy(Path.Combine(_executingDirectory, "Resources", "jquery-1.9.1.js"), Path.Combine("docs", "jquery-1.9.1.js"), true);
                 File.Copy(Path.Combine(_executingDirectory, "Resources", "nocco.js"), Path.Combine("docs", "nocco.js"), true);
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "jquery.treeView.js"), Path.Combine("docs", "jquery.treeView.js"), true);
                 // Create a folder Images to store the "back to top" arrow
                 Directory.CreateDirectory(@"docs\Images");
                 File.Copy(Path.Combine(_executingDirectory, "Resources", "arrow-top.png"), Path.Combine("docs", "Images", "arrow-top.png"), true);
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "arrow-down.png"), Path.Combine("docs", "Images", "arrow-down.png"), true);
+                File.Copy(Path.Combine(_executingDirectory, "Resources", "arrow-left.png"), Path.Combine("docs", "Images", "arrow-left.png"), true);
 				_templateType = SetupRazorTemplate();
+
+                if (Directory.Exists("DocImages"))
+                {
+                    foreach (var file in Directory.GetFiles("DocImages"))
+                    {
+                        string fileName = file.Split(new char[] { '\\' })[1];
+                        File.Copy(file, Path.Combine("docs", "Images", fileName), true);
+                    }
+                }
 
 				_files = new List<string>();
 				foreach (var target in targets) {
@@ -679,6 +697,7 @@ namespace Nocco {
 
 
                 Regex reg = new Regex(@"LINK\\(\w+(\#\w+)?)");
+                Regex regImg = new Regex(@"IMG\\(\w+)");
                 foreach (var file in allFiles)
                 {
                     allLinks.Add(new LinkFileToClass(file.Substring(7)));
@@ -700,7 +719,7 @@ namespace Nocco {
 
                                 foreach (Match match in matches)
                                 {
-                                    // On gère ici les liens avec les ancres s'il y en a
+                                    // We handle anchor if there are.
                                     string typeNameWithAnchor = match.Value.Split(new char[] { '\\' })[1];
                                     string[] anchorTab = typeNameWithAnchor.Split(new char[] { '#' });
                                     string typeName = anchorTab[0];
@@ -728,6 +747,21 @@ namespace Nocco {
                                         }
                                     }
                                 }
+                            }
+                        }
+                        if (line.Contains("src=\"IMG"))
+                        {
+                            var matches = regImg.Matches(line);
+
+                            foreach (Match match in matches)
+                            {
+                                // Get the Image name
+                                if (match.Value.Split(new char[] { '\\' }).Length > 1)
+                                {
+                                    string imageName = match.Value.Split(new char[] { '\\' })[1];
+                                    lines[j] = lines[j].Replace(match.Value, currentFile.PathToRoot + "Images\\" + imageName);
+                                }
+                                
                             }
                         }
                     }

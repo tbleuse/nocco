@@ -20,13 +20,26 @@
         return false;
     })
 
-    //$(function () {
-    //    $(".header").resizable({
-    //        alsoResize: ".desc"
-    //    });
-    //    $("#.desc").resizable({
-    //        alsoResize: ".header"
-    //    });
-    //});
+    $(".folder").click(function () {
+        $(this).next("ul").toggle(500);
+    });
+
+    // Gestion de la recherche [ici](http://kilianvalkhof.com/2010/javascript/how-to-build-a-fast-simple-list-filter-with-jquery/) 
+    $("#search").change(function () {
+        var filter = $(this).val(); 
+        if (filter) {
+            $(".folder").next("ul").show();
+            $("#menu ul").find("a:not(:Contains(" + filter +"))").parent().slideUp(); 
+            $("#menu ul").find("a:Contains(" + filter +")").parent().slideDown(); 
+        } else {            
+            $("#menu ul").find("li").slideDown(); 
+        } 
+    }).keyup(function() { 
+        $(this).change(); 
+    });
 
 });
+
+jQuery.expr[':'].Contains = function (a, i, m) {
+    return (a.textContent || a.innerText || "").toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
+};

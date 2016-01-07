@@ -1,4 +1,5 @@
-﻿using System;
+﻿// GENERATE
+using System;
 // A smart class used for generating nice HTML based on the language of your
 // choice.
 using System.Collections.Generic;

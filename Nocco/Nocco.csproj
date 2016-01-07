@@ -85,7 +85,6 @@
     <Content Include="Resources\jquery-1.9.1.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\jquery.zoom.js" />
     <Content Include="Resources\nocco.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

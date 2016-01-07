@@ -9,9 +9,11 @@ namespace Nocco {
 		// Properties available from within the template
 		public string Title { get; set; }
 		public string PathToCss { get; set; }
+        public string PathToCss1 { get; set; }
         public string PathToJs { get; set; }
         public string PathToJs1 { get; set; }
         public string PathToJs2 { get; set; }
+        public string PathToJs3 { get; set; }
 
         // This is HTML Code
         public string ExtraCss { get; set; }
