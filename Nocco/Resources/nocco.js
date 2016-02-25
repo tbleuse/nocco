@@ -1,7 +1,7 @@
 ﻿$(document).ready(function () {
-    // Back to top
-    // When we read a long page we want to go back to top quickly so we make a link appear when user
-    // scrolls down.
+    // Back to top 
+    // When we read a long page we want to go back to top quickly so we make a link appear when user 
+    // scrolls down. 
     var offset = 250;
     var duration = 300;
     $(window).scroll(function () {
@@ -26,16 +26,16 @@
 
     // Gestion de la recherche [ici](http://kilianvalkhof.com/2010/javascript/how-to-build-a-fast-simple-list-filter-with-jquery/) 
     $("#search").change(function () {
-        var filter = $(this).val(); 
+        var filter = $(this).val();
         if (filter) {
             $(".folder").next("ul").show();
-            $("#menu ul").find("a:not(:Contains(" + filter +"))").parent().slideUp(); 
-            $("#menu ul").find("a:Contains(" + filter +")").parent().slideDown(); 
-        } else {            
-            $("#menu ul").find("li").slideDown(); 
-        } 
-    }).keyup(function() { 
-        $(this).change(); 
+            $("#menu ul").find("a:not(:Contains(" + filter + "))").parent().slideUp();
+            $("#menu ul").find("a:Contains(" + filter + ")").parent().slideDown();
+        } else {
+            $("#menu ul").find("li").slideDown();
+        }
+    }).keyup(function () {
+        $(this).change();
     });
 
 });
